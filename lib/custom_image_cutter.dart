@@ -55,14 +55,20 @@ class _CustomImageCutterState extends State<CustomImageCutter> {
   Widget build(BuildContext context) {
     final controller = widget.controller;
     Completer<ui.Image> completer = Completer<ui.Image>();
-    widget.image.image.resolve(const ImageConfiguration()).addListener(ImageStreamListener((ImageInfo info, bool _) => completer.complete(info.image)));
+    widget.image.image.resolve(const ImageConfiguration()).addListener(
+        ImageStreamListener(
+            (ImageInfo info, bool _) => completer.complete(info.image)));
 
     return FutureBuilder<ui.Image>(
         future: completer.future,
         builder: (BuildContext context, AsyncSnapshot<ui.Image> snapshot) {
-          if (snapshot.hasData && widget.imagePath != imagePath && completer.isCompleted) {
+          if (snapshot.hasData &&
+              widget.imagePath != imagePath &&
+              completer.isCompleted) {
             imagePath = widget.imagePath;
-            controller._initImageOriginalSize(height: snapshot.data!.height.toDouble(), width: snapshot.data!.width.toDouble());
+            controller._initImageOriginalSize(
+                height: snapshot.data!.height.toDouble(),
+                width: snapshot.data!.width.toDouble());
           }
           return Stack(
             children: [
@@ -92,7 +98,8 @@ class _CustomImageCutterState extends State<CustomImageCutter> {
                               children: [
                                 LayoutBuilder(
                                   builder: (_, constraint) {
-                                    controller._initContainerSize(constraint.biggest.width);
+                                    controller._initContainerSize(
+                                        constraint.biggest.width);
                                     return AspectRatio(
                                       aspectRatio: 1,
                                       child: ClipOval(
@@ -100,7 +107,12 @@ class _CustomImageCutterState extends State<CustomImageCutter> {
                                           child: Stack(
                                             alignment: Alignment.center,
                                             children: [
-                                              Transform.translate(offset: controller._offset, child: Transform.scale(scale: controller._imageScale, child: widget.image)),
+                                              Transform.translate(
+                                                  offset: controller._offset,
+                                                  child: Transform.scale(
+                                                      scale: controller
+                                                          ._imageScale,
+                                                      child: widget.image)),
                                             ],
                                           )),
                                     );
@@ -113,16 +125,25 @@ class _CustomImageCutterState extends State<CustomImageCutter> {
                             height: controller._containerSize * 1.2,
                             width: controller._containerSize * 1.2,
                             child: ColorFiltered(
-                              colorFilter: ColorFilter.mode(widget.overlayColor.withOpacity(0.5), BlendMode.srcOut),
+                              colorFilter: ColorFilter.mode(
+                                  widget.overlayColor.withOpacity(0.5),
+                                  BlendMode.srcOut),
                               child: Stack(
                                 children: [
-                                  Container(decoration: BoxDecoration(color: Colors.black.withOpacity(0.5), backgroundBlendMode: BlendMode.dstOut)),
+                                  Container(
+                                      decoration: BoxDecoration(
+                                          color: Colors.black.withOpacity(0.5),
+                                          backgroundBlendMode:
+                                              BlendMode.dstOut)),
                                   Align(
                                     alignment: Alignment.center,
                                     child: Container(
                                       height: controller._containerSize * 0.9,
                                       width: controller._containerSize * 0.9,
-                                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(360)),
+                                      decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius:
+                                              BorderRadius.circular(360)),
                                     ),
                                   ),
                                 ],
@@ -182,10 +203,12 @@ class CustomImageCutterController extends ChangeNotifier {
   }
 
   /// Returns true if the [Y] axis offset is inside of the [maxDisplacement] from this axis
-  bool get _isInsideOfYOffset => _yOffset >= -_maxYDisplacement && _yOffset <= _maxYDisplacement;
+  bool get _isInsideOfYOffset =>
+      _yOffset >= -_maxYDisplacement && _yOffset <= _maxYDisplacement;
 
   /// Returns true if the [X] axis offset is inside of the [maxDisplacement] from this axis
-  bool get _isInsideOfXOffset => _xOffset >= -_maxXDisplacement && _xOffset <= _maxXDisplacement;
+  bool get _isInsideOfXOffset =>
+      _xOffset >= -_maxXDisplacement && _xOffset <= _maxXDisplacement;
 
   /// Min scale shoould be different is the image is a [square]
   double get _minScale => _isSquare ? 1.0 : 1.5;
@@ -221,7 +244,8 @@ class CustomImageCutterController extends ChangeNotifier {
   }
 
   /// Return a [Uint8List] containing the cropped image
-  Future<Uint8List?> crop({required GlobalKey cropperKey, double pixelRatio = 3}) async {
+  Future<Uint8List?> crop(
+      {required GlobalKey cropperKey, double pixelRatio = 3}) async {
     // Get cropped image
     final renderObject = cropperKey.currentContext!.findRenderObject();
     final boundary = renderObject as RenderRepaintBoundary;
@@ -244,7 +268,9 @@ class CustomImageCutterController extends ChangeNotifier {
 
   /// Recognizes  gestures to apply [scale] to image using [gestures]
   void _onScale(double newValue) {
-    double scaleFactor = newValue > _lastScaleValue ? newValue - _lastScaleValue : newValue - _lastScaleValue;
+    double scaleFactor = newValue > _lastScaleValue
+        ? newValue - _lastScaleValue
+        : newValue - _lastScaleValue;
     _lastScaleValue = newValue;
 
     /// This verification is responsible for preventing a very large and abrupt variation in the zoom
@@ -261,7 +287,9 @@ class CustomImageCutterController extends ChangeNotifier {
   void _setScale(double scale) {
     if (_imageScale > scale) {
       final zoomOutInteractions = _imageScale - scale;
-      for (int interaction = 0; interaction < zoomOutInteractions; interaction++) {
+      for (int interaction = 0;
+          interaction < zoomOutInteractions;
+          interaction++) {
         _updateOffsetInsideBoundaries();
         _imageScale = scale;
         scaleNotifier.value = _imageScale;
@@ -283,7 +311,8 @@ class CustomImageCutterController extends ChangeNotifier {
   }
 
   /// Move the image inside the boudaries
-  void _updateOffset({required double yOffsetTemp, required double xOffsetTemp}) {
+  void _updateOffset(
+      {required double yOffsetTemp, required double xOffsetTemp}) {
     if (yOffsetTemp >= -_maxYDisplacement && yOffsetTemp <= _maxYDisplacement) {
       _yOffset = yOffsetTemp;
     }
@@ -296,10 +325,12 @@ class CustomImageCutterController extends ChangeNotifier {
   /// Keep the image inside the boudaries when is applying zoom in or out
   void _updateOffsetInsideBoundaries() {
     if (!_isInsideOfYOffset && _yOffset != 0) {
-      _yOffset = _yOffset > _maxYDisplacement ? _maxYDisplacement : -_maxYDisplacement;
+      _yOffset =
+          _yOffset > _maxYDisplacement ? _maxYDisplacement : -_maxYDisplacement;
     }
     if (!_isInsideOfXOffset && _xOffset != 0) {
-      _xOffset = _xOffset > _maxXDisplacement ? _maxXDisplacement : -_maxXDisplacement;
+      _xOffset =
+          _xOffset > _maxXDisplacement ? _maxXDisplacement : -_maxXDisplacement;
     }
     notifyListeners();
   }
