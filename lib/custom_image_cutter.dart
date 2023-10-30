@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
+/// The view for the [CustomImageCutter]
 class CustomImageCutter extends StatefulWidget {
   /// [Globalkey] uset to got reference when cut image
   final GlobalKey cropperKey;
@@ -92,33 +93,35 @@ class _CustomImageCutterState extends State<CustomImageCutter> {
                       child: Stack(
                         alignment: Alignment.center,
                         children: [
-                          RepaintBoundary(
-                            key: widget.cropperKey,
-                            child: Stack(
-                              children: [
-                                LayoutBuilder(
-                                  builder: (_, constraint) {
-                                    controller._initContainerSize(
-                                        constraint.biggest.width);
-                                    return AspectRatio(
-                                      aspectRatio: 1,
-                                      child: ClipOval(
-                                          clipBehavior: Clip.none,
-                                          child: Stack(
-                                            alignment: Alignment.center,
-                                            children: [
-                                              Transform.translate(
-                                                  offset: controller._offset,
-                                                  child: Transform.scale(
-                                                      scale: controller
-                                                          ._imageScale,
-                                                      child: widget.image)),
-                                            ],
-                                          )),
-                                    );
-                                  },
-                                ),
-                              ],
+                          SizedBox(
+                            child: RepaintBoundary(
+                              key: widget.cropperKey,
+                              child: Stack(
+                                children: [
+                                  LayoutBuilder(
+                                    builder: (_, constraint) {
+                                      controller._initContainerSize(
+                                          constraint.biggest.width);
+                                      return AspectRatio(
+                                        aspectRatio: 1,
+                                        child: ClipOval(
+                                            clipBehavior: Clip.none,
+                                            child: Stack(
+                                              alignment: Alignment.center,
+                                              children: [
+                                                Transform.translate(
+                                                    offset: controller._offset,
+                                                    child: Transform.scale(
+                                                        scale: controller
+                                                            ._imageScale,
+                                                        child: widget.image)),
+                                              ],
+                                            )),
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                           SizedBox(
@@ -160,6 +163,7 @@ class _CustomImageCutterState extends State<CustomImageCutter> {
   }
 }
 
+/// Responsable to keep expose current state of [CustomImageCutter], and allow to cut the image
 class CustomImageCutterController extends ChangeNotifier {
   double _containerSize = 0;
   double _imageHeight = 0;
@@ -169,6 +173,7 @@ class CustomImageCutterController extends ChangeNotifier {
   double _yOffset = 0.0;
   double _maxScale = 5.0;
   double _lastScaleValue = 0.0;
+  double _minScale = 0.0;
 
   /// Exposes the [maximum] [scale] to the view
   double get maxScale => _maxScale;
@@ -177,7 +182,7 @@ class CustomImageCutterController extends ChangeNotifier {
   double get minScale => _minScale;
 
   /// Exposes the [actual] [scale] as a [ValueNotifier] to use on view
-  ValueNotifier<double> scaleNotifier = ValueNotifier<double>(1.0);
+  ValueNotifier<double> scaleNotifier = ValueNotifier<double>(0.0);
 
   /// Exposes the [actual] [scale] to use on view
   double get scale => scaleNotifier.value;
@@ -188,18 +193,24 @@ class CustomImageCutterController extends ChangeNotifier {
   /// Get the [maxDisplacement] to [X] axis from the current image
   double get _maxXDisplacement => _maxDisplacement(isXAxis: true);
 
-  /// get the [minDisplacement] from axis of the current image
+  /// get the [maxDisplacement] from axis of the current image
   double _maxDisplacement({required bool isXAxis}) {
     final isPortrait = isXAxis ? _isPortrait : !_isPortrait;
-
     final portraitSlope = _containerSize * 0.3325;
     final landscapeSlope = _containerSize * 0.5;
 
     double slope = isPortrait ? portraitSlope : landscapeSlope;
+
     if (_isSquare) slope = landscapeSlope;
+
+    final imageProportionOnContainer =
+        isXAxis ? _containerSize / _imageWidth : _containerSize / _imageHeight;
     final yIntercept = -_containerSize * 0.5;
-    final displacement = slope * _imageScale + yIntercept;
-    return displacement / _imageScale;
+    final displacement = _isSmallPicture
+        ? slope * (_imageScale / imageProportionOnContainer) + yIntercept
+        : slope * _imageScale + yIntercept;
+
+    return displacement;
   }
 
   /// Returns true if the [Y] axis offset is inside of the [maxDisplacement] from this axis
@@ -210,17 +221,18 @@ class CustomImageCutterController extends ChangeNotifier {
   bool get _isInsideOfXOffset =>
       _xOffset >= -_maxXDisplacement && _xOffset <= _maxXDisplacement;
 
-  /// Min scale shoould be different is the image is a [square]
-  double get _minScale => _isSquare ? 1.0 : 1.5;
-
   /// Should return true if the image has [portrait] format
   bool get _isPortrait => _imageHeight > _imageWidth;
 
   /// Should return true if the image is a [square]
   bool get _isSquare => _imageHeight == _imageWidth;
 
+  /// Should return true when the image is smaller than the [_containerSize]
+  bool get _isSmallPicture =>
+      _imageHeight < _containerSize && _imageWidth < _containerSize;
+
   /// Holds the image offset
-  Offset get _offset => Offset(_xOffset * _imageScale, _yOffset * _imageScale);
+  Offset get _offset => Offset(_xOffset, _yOffset);
 
   /// Define [container] size to use for cut image
   void _initContainerSize(double size) => _containerSize = size;
@@ -229,8 +241,29 @@ class CustomImageCutterController extends ChangeNotifier {
   void _initImageOriginalSize({required double height, required double width}) {
     _imageWidth = width;
     _imageHeight = height;
-    _imageScale = _isSquare ? 1.0 : 1.5;
+
+    if (_containerSize > height || _containerSize > width) {
+      _setScaleToSmallPictures(height: height, width: width);
+    } else {
+      _setImageScale(_isSquare ? 1.0 : 1.5);
+    }
     scaleNotifier.value = _imageScale;
+  }
+
+  /// Set the [scale] when the image is smaller than the [_containerSize]
+  void _setScaleToSmallPictures(
+      {required double height, required double width}) {
+    if (height > width) {
+      _setImageScale(_containerSize / width);
+    } else {
+      _setImageScale(_containerSize / height);
+    }
+  }
+
+  void _setImageScale(double scale) {
+    _imageScale = scale;
+    _minScale = scale;
+    _maxScale = scale + _maxScale;
   }
 
   /// Reset all values when replace a image with a new one
@@ -246,12 +279,12 @@ class CustomImageCutterController extends ChangeNotifier {
   /// Return a [Uint8List] containing the cropped image
   Future<Uint8List?> crop(
       {required GlobalKey cropperKey, double pixelRatio = 3}) async {
-    // Get cropped image
+    /// Get cropped image
     final renderObject = cropperKey.currentContext!.findRenderObject();
     final boundary = renderObject as RenderRepaintBoundary;
     final image = await boundary.toImage(pixelRatio: pixelRatio);
 
-    // Convert image to bytes in PNG format and return
+    /// Convert image to bytes in PNG format and return
     final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
     final pngBytes = byteData?.buffer.asUint8List();
 
@@ -304,8 +337,8 @@ class CustomImageCutterController extends ChangeNotifier {
 
   /// Recognizes  gestures to apply [translation] to the image
   void _onDrag(ScaleUpdateDetails details) {
-    final xOffsetTemp = _xOffset + details.focalPointDelta.dx / _imageScale;
-    final yOffsetTemp = _yOffset + details.focalPointDelta.dy / _imageScale;
+    final xOffsetTemp = _xOffset + details.focalPointDelta.dx;
+    final yOffsetTemp = _yOffset + details.focalPointDelta.dy;
 
     _updateOffset(xOffsetTemp: xOffsetTemp, yOffsetTemp: yOffsetTemp);
   }

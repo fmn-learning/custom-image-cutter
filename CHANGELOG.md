@@ -12,4 +12,6 @@
 * Refactor documentation
 ## 1.1.3
 * Refactor code
+## 1.1.4
+* Deal with small images
 
