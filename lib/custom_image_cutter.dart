@@ -168,6 +168,8 @@ class CustomImageCutterController extends ChangeNotifier {
   double _containerSize = 0;
   double _imageHeight = 0;
   double _imageWidth = 0;
+  double _imageScaledHeight = 0;
+  double _imageScaledWidth = 0;
   double _imageScale = 1.0;
   double _xOffset = 0.0;
   double _yOffset = 0.0;
@@ -193,24 +195,24 @@ class CustomImageCutterController extends ChangeNotifier {
   /// Get the [maxDisplacement] to [X] axis from the current image
   double get _maxXDisplacement => _maxDisplacement(isXAxis: true);
 
-  /// get the [maxDisplacement] from axis of the current image
+  /// Responsable for calculating the resized image size, which is used for get [maxDisplacement]
+  double _calculateNewResizedSize(
+      {required double originalBiggerSide,
+      required double originalSmallerSide,
+      required double newWidth}) {
+    double ratio = newWidth / originalSmallerSide;
+    double newSize = ratio * originalBiggerSide;
+    if (_isSmallPicture) newSize = originalBiggerSide * ratio;
+    return newSize;
+  }
+
   double _maxDisplacement({required bool isXAxis}) {
-    final isPortrait = isXAxis ? _isPortrait : !_isPortrait;
-    final portraitSlope = _containerSize * 0.3325;
-    final landscapeSlope = _containerSize * 0.5;
-
-    double slope = isPortrait ? portraitSlope : landscapeSlope;
-
-    if (_isSquare) slope = landscapeSlope;
-
-    final imageProportionOnContainer =
-        isXAxis ? _containerSize / _imageWidth : _containerSize / _imageHeight;
-    final yIntercept = -_containerSize * 0.5;
-    final displacement = _isSmallPicture
-        ? slope * (_imageScale / imageProportionOnContainer) + yIntercept
-        : slope * _imageScale + yIntercept;
-
-    return displacement;
+    final scale = _imageScale / _minScale;
+    final displacement = isXAxis
+        ? _imageScaledWidth * scale - _containerSize
+        : _imageScaledHeight * scale - _containerSize;
+    final diference = displacement / 2;
+    return diference;
   }
 
   /// Returns true if the [Y] axis offset is inside of the [maxDisplacement] from this axis
@@ -241,22 +243,49 @@ class CustomImageCutterController extends ChangeNotifier {
   void _initImageOriginalSize({required double height, required double width}) {
     _imageWidth = width;
     _imageHeight = height;
+    if (_isPortrait) {
+      _imageScaledWidth = _containerSize;
+      _imageScaledHeight = _calculateNewResizedSize(
+          originalBiggerSide: _imageHeight,
+          originalSmallerSide: _imageWidth,
+          newWidth: _containerSize);
+    }
+    if (!_isPortrait) {
+      _imageScaledHeight = _containerSize;
+      _imageScaledWidth = _calculateNewResizedSize(
+          originalBiggerSide: _imageWidth,
+          originalSmallerSide: _imageHeight,
+          newWidth: _containerSize);
+    }
 
-    if (_containerSize > height || _containerSize > width) {
-      _setScaleToSmallPictures(height: height, width: width);
+    if (_containerSize > height && _containerSize > width) {
+      _setScaleToSmallPicture(height: height, width: width);
     } else {
-      _setImageScale(_isSquare ? 1.0 : 1.5);
+      _setScaleToPicture(height: height, width: width);
     }
     scaleNotifier.value = _imageScale;
   }
 
   /// Set the [scale] when the image is smaller than the [_containerSize]
-  void _setScaleToSmallPictures(
+  void _setScaleToSmallPicture(
       {required double height, required double width}) {
     if (height > width) {
       _setImageScale(_containerSize / width);
     } else {
       _setImageScale(_containerSize / height);
+    }
+  }
+
+  /// Set the [scale] when the image is bigger than the [_containerSize]
+  void _setScaleToPicture({required double height, required double width}) {
+    if (_isSquare) {
+      _setImageScale(1.0);
+      return;
+    }
+    if (height > width) {
+      _setImageScale(height / width);
+    } else {
+      _setImageScale(width / height);
     }
   }
 
@@ -270,6 +299,10 @@ class CustomImageCutterController extends ChangeNotifier {
   void reset() {
     _xOffset = 0.0;
     _yOffset = 0.0;
+    _imageScaledHeight = 0;
+    _imageScaledWidth = 0;
+    _imageHeight = 0;
+    _imageWidth = 0;
     _imageScale = _minScale;
     scaleNotifier.value = _imageScale;
 
@@ -349,6 +382,7 @@ class CustomImageCutterController extends ChangeNotifier {
     if (yOffsetTemp >= -_maxYDisplacement && yOffsetTemp <= _maxYDisplacement) {
       _yOffset = yOffsetTemp;
     }
+
     if (xOffsetTemp >= -_maxXDisplacement && xOffsetTemp <= _maxXDisplacement) {
       _xOffset = xOffsetTemp;
     }

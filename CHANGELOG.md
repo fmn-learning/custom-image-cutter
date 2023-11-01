@@ -14,4 +14,6 @@
 * Refactor code
 ## 1.1.4
 * Deal with small images
+## 1.1.5
+* Deal with narrow images
 
